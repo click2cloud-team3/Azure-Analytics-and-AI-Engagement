@@ -1,3 +1,5 @@
+Get-Content "$PSScriptRoot\automation_script.ps1"   *> $null  # Source the automation script.
+
 $yes = New-Object System.Management.Automation.Host.ChoiceDescription "&Yes","I accept the license agreement."
 $no = New-Object System.Management.Automation.Host.ChoiceDescription "&No","I do not accept and wish to stop execution."
 $options = [System.Management.Automation.Host.ChoiceDescription[]]($yes, $no)
@@ -99,12 +101,10 @@ function GetAccessTokens($context)
 #cloud shell can't be full - check for 5GB limit...
 #TODO
 
-#should auto for this.
-az login
+loginToAzure
 
 #for powershell...
-Connect-AzAccount -DeviceCode
-
+Connect-AzAccount -Credential $Credential -Tenant $global:tenantId -Subscription $azure_subscriptionID
 #will be done as part of the cloud shell start - README
 
 #remove-item MfgAI -recurse -force
@@ -113,22 +113,24 @@ Connect-AzAccount -DeviceCode
 #cd 'MfgAI/Manufacturing/automation'
 
 #if they have many subs...
-$subs = Get-AzSubscription | Select-Object -ExpandProperty Name
+# $subs = Get-AzSubscription | Select-Object -ExpandProperty Id
 
-if($subs.GetType().IsArray -and $subs.length -gt 1)
-{
-    $subOptions = [System.Collections.ArrayList]::new()
-    for($subIdx=0; $subIdx -lt $subs.length; $subIdx++)
-    {
-        $opt = New-Object System.Management.Automation.Host.ChoiceDescription "$($subs[$subIdx])", "Selects the $($subs[$subIdx]) subscription."   
-        $subOptions.Add($opt)
-    }
-    $selectedSubIdx = $host.ui.PromptForChoice('Enter the desired Azure Subscription for this lab','Copy and paste the name of the subscription to make your choice.', $subOptions.ToArray(),0)
-    $selectedSubName = $subs[$selectedSubIdx]
-    Write-Host "Selecting the $selectedSubName subscription"
-    Select-AzSubscription -SubscriptionName $selectedSubName
-    az account set --subscription $selectedSubName
-}
+# if($subs.GetType().IsArray -and $subs.length -gt 1)
+# {
+#     $subOptions = [System.Collections.ArrayList]::new()
+#     for($subIdx=0; $subIdx -lt $subs.length; $subIdx++)
+#     {
+#         $opt = New-Object System.Management.Automation.Host.ChoiceDescription "$($subs[$subIdx])", "Selects the $($subs[$subIdx]) subscription."   
+#         $subOptions.Add($opt)
+#     }
+#     $selectedSubIdx = $host.ui.PromptForChoice('Enter the desired Azure Subscription for this lab','Copy and paste the ID of the subscription to make your choice.', $subOptions.ToArray(),0)
+#     $selectedSubId = $subs[$selectedSubIdx]
+    
+# }
+
+# Setting azure subscription
+Write-Host "Selecting the $azure_subscriptionID subscription"
+az account set --subscription $azure_subscriptionID
 
 #getting user details
 
@@ -147,7 +149,7 @@ $uri ="https://registerddibuser.azurewebsites.net/api/registeruser?code=pTrmFDqp
 $result = Invoke-RestMethod  -Uri $uri -Method POST -Body $body -Headers @{} -ContentType "application/json"
 
 #User Inputs
-$rgName = read-host "Enter the resource Group Name";
+$rgName = $resourceGroup
 #$rgName = "cjg-sanjay-2";
 
 $init =  (Get-AzResourceGroup -Name $rgName).Tags["DeploymentId"]
@@ -419,7 +421,7 @@ $url = "https://$($location).api.cognitive.microsoft.com/customvision/v3.2/train
 $projects = Invoke-RestMethod -Uri $url -Method GET  -ContentType "application/json" -Headers @{ "Training-key"="$($destinationKey)" };
 
 (Get-Content -path artifacts/amlnotebooks/config.py -Raw) | Foreach-Object { $_ `
-                -replace '#SUBSCRIPTION_ID#', $subscriptionId`
+                -replace '#SUBSCRIPTION_ID#', $azure_subscriptionID`
 				-replace '#RESOURCE_GROUP#', $rgName`
 				-replace '#WORKSPACE_NAME#', $amlworkspacename`
 				-replace '#STORAGE_ACCOUNT_NAME#', $dataLakeAccountName`
@@ -600,7 +602,7 @@ $message = " (Type [Y] for Yes or [N] for No and press enter)"
 $result = $host.ui.PromptForChoice($title, $message, $options, 1)
 if($result -eq 0)
 {
- Login-PowerBI 
+ Connect-PowerBIServiceAccount -Credential $Credential 
 }
 
 $principal=az resource show -g $rgName -n $mfgasaName --resource-type "Microsoft.StreamAnalytics/streamingjobs" --output json |ConvertFrom-Json
@@ -883,7 +885,7 @@ $notebooks=Get-ChildItem "./artifacts/notebooks" | Select BaseName
 
 $cellParams = [ordered]@{
         "#SQL_POOL_NAME#"       = $sqlPoolName
-        "#SUBSCRIPTION_ID#"     = $subscriptionId
+        "#SUBSCRIPTION_ID#"     = $azure_subscriptionID
         "#RESOURCE_GROUP_NAME#" = $rgName
         "#WORKSPACE_NAME#"  = $synapseWorkspaceName
         "#DATA_LAKE_NAME#" = $dataLakeAccountName
@@ -1736,3 +1738,12 @@ Write-Host  "-----------------Uploading Cosmos Data Complete--------------"
 Add-Content log.txt "-----------------Execution Complete---------------"
 Write-Host  "-----------------Execution Complete----------------"
 }
+
+# Get Access key of storage account
+function getStorageAccountAccessKey(){
+    $Access_Key=$(az storage account keys list --resource-group $resourceGroup --account-name $storageAccountName --query "[0].value" -o tsv)
+    Write-Host "Access key of storage account: $Access_Key"
+}
+
+getStorageAccountAccessKey
+
