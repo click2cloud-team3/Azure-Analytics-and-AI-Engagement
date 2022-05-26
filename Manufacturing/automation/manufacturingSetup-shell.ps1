@@ -1747,3 +1747,10 @@ function getStorageAccountAccessKey(){
 
 getStorageAccountAccessKey
 
+# Get access key of CosmosDB Account
+function getCosmosDBAccessKey(){
+    $accessKey = (az cosmosdb keys list --name $cosmos_account_name_mfgdemo --resource-group $resourceGroup --subscription $azure_subscriptionID --type keys  --output json | ConvertFrom-Json).primaryMasterKey
+    Write-Host "Primary key of Cosmos DB: $accessKey"
+}
+
+getCosmosDBAccessKey
