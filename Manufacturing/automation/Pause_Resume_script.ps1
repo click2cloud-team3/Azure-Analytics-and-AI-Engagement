@@ -20,6 +20,9 @@ Connect-AzAccount -Credential $Credential -Tenant $global:tenantId -Subscription
 #     Select-AzSubscription -SubscriptionName $selectedSubName
 #     az account set --subscription $selectedSubName
 # }
+Write-Host "Selecting the $selectedSubName subscription"
+Select-AzSubscription -SubscriptionId $azure_subscriptionID
+az account set --subscription $azure_subscriptionID
 
 $rgName = read-host "Enter the resource Group Name";
 $init =  (Get-AzResourceGroup -Name $rgName).Tags["DeploymentId"]
