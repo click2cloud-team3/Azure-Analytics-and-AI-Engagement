@@ -1430,42 +1430,42 @@ foreach($report in $reportList)
     start-sleep -s 5
 }
 
-Write-Host  "-----------------Uploading Cosmos Data Started--------------"
-#uploading Cosmos data
-Add-Content log.txt "-----------------uploading Cosmos data--------------"
-RefreshTokens
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-Install-Module -Name PowerShellGet -Force
-Install-Module -Name CosmosDB -Force
-$cosmosDbAccountName = $cosmos_account_name_heathcare
-$databaseName = $cosmos_database_name_healthcare
-$cosmos = Get-ChildItem "./artifacts/cosmos" | Select BaseName 
-
-foreach($name in $cosmos)
-{
-    $collection = $name.BaseName 
-    $cosmosDbContext = New-CosmosDbContext -Account $cosmosDbAccountName -Database $databaseName -ResourceGroup $rgName
-    $path="./artifacts/cosmos/"+$name.BaseName+".json"
-    $document=Get-Content -Raw -Path $path
-    $document=ConvertFrom-Json $document
-	#$newRU=4000
-	#az cosmosdb sql container throughput update -a $cosmosDbAccountName -g $rgName -d $databaseName -n $collection --throughput $newRU
-	
-    foreach($json in $document)
-    {
-        $key=$json.SyntheticPartitionKey
-        $id = New-Guid
-       if(![bool]($json.PSobject.Properties.name -eq "id"))
-       {$json | Add-Member -MemberType NoteProperty -Name 'id' -Value $id}
-       if(![bool]($json.PSobject.Properties.name -eq "SyntheticPartitionKey"))
-       {$json | Add-Member -MemberType NoteProperty -Name 'SyntheticPartitionKey' -Value $id}
-        $body=ConvertTo-Json $json
-        New-CosmosDbDocument -Context $cosmosDbContext -CollectionId $collection -DocumentBody $body -PartitionKey $key
-    }
-	
-	#$newRU=400
-	#az cosmosdb sql container throughput update -a $cosmosDbAccountName -g $rgName -d $databaseName -n $collection --throughput $newRU
-} 
+# Write-Host  "-----------------Uploading Cosmos Data Started--------------"
+# #uploading Cosmos data
+# Add-Content log.txt "-----------------uploading Cosmos data--------------"
+# RefreshTokens
+# [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+# Install-Module -Name PowerShellGet -Force
+# Install-Module -Name CosmosDB -Force
+# $cosmosDbAccountName = $cosmos_account_name_heathcare
+# $databaseName = $cosmos_database_name_healthcare
+# $cosmos = Get-ChildItem "./artifacts/cosmos" | Select BaseName
+#
+# foreach($name in $cosmos)
+# {
+#     $collection = $name.BaseName
+#     $cosmosDbContext = New-CosmosDbContext -Account $cosmosDbAccountName -Database $databaseName -ResourceGroup $rgName
+#     $path="./artifacts/cosmos/"+$name.BaseName+".json"
+#     $document=Get-Content -Raw -Path $path
+#     $document=ConvertFrom-Json $document
+# 	#$newRU=4000
+# 	#az cosmosdb sql container throughput update -a $cosmosDbAccountName -g $rgName -d $databaseName -n $collection --throughput $newRU
+#
+#     foreach($json in $document)
+#     {
+#         $key=$json.SyntheticPartitionKey
+#         $id = New-Guid
+#        if(![bool]($json.PSobject.Properties.name -eq "id"))
+#        {$json | Add-Member -MemberType NoteProperty -Name 'id' -Value $id}
+#        if(![bool]($json.PSobject.Properties.name -eq "SyntheticPartitionKey"))
+#        {$json | Add-Member -MemberType NoteProperty -Name 'SyntheticPartitionKey' -Value $id}
+#         $body=ConvertTo-Json $json
+#         New-CosmosDbDocument -Context $cosmosDbContext -CollectionId $collection -DocumentBody $body -PartitionKey $key
+#     }
+#
+# 	#$newRU=400
+# 	#az cosmosdb sql container throughput update -a $cosmosDbAccountName -g $rgName -d $databaseName -n $collection --throughput $newRU
+# }
 
 Write-Host  "-----------------Uploading Cosmos Data Complete--------------"
 
