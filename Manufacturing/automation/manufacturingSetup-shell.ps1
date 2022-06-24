@@ -393,28 +393,28 @@ Write-Host "----Cognitive Services ------"
 RefreshTokens
 #Custom Vision 
 pip install -r ./artifacts/copyCV/requirements.txt
-$sourceKey="f3582ebe4357457dbf2c056671fc9151"  #todo: find a way to get this securely
+$sourceKey=""  #todo: find a way to get this securely
 
 #get list of keys - cognitiveservices
 $key=az cognitiveservices account keys list --name $cognitive_services_name -g $rgName --output json |ConvertFrom-json
 $destinationKey=$key.key1
 
 #hard hat project
-$sourceProjectId="51cec742-9f60-490d-aa73-6049191fcce3"
+$sourceProjectId=""
 $destinationregion= "https://$($location).api.cognitive.microsoft.com"
 $sourceregion= "https://westus2.api.cognitive.microsoft.com"
 python ./artifacts/copyCV/migrate_project.py -p $sourceProjectId -s $sourceKey -se $sourceregion -d $destinationKey -de $destinationregion
 
 #welding helmet project
-$sourceProjectId="fde1c8b5-ff1f-4da9-b060-3f649b92d47f"
+$sourceProjectId=""
 python ./artifacts/copyCV/migrate_project.py -p $sourceProjectId -s $sourceKey -se $sourceregion -d $destinationKey -de $destinationregion
 
 #mask compliance project
-$sourceProjectId="0683575c-1a27-4ea8-a68b-d9f4b40631a6"
+$sourceProjectId=""
 python ./artifacts/copyCV/migrate_project.py -p $sourceProjectId -s $sourceKey -se $sourceregion -d $destinationKey -de $destinationregion
 
 #product classification project
-$sourceProjectId="30f20b0d-fd44-4ecd-b78c-66cb6d3e7df2"
+$sourceProjectId=""
 python ./artifacts/copyCV/migrate_project.py -p $sourceProjectId -s $sourceKey -se $sourceregion -d $destinationKey -de $destinationregion
 
 $url = "https://$($location).api.cognitive.microsoft.com/customvision/v3.2/training/projects"
@@ -1084,12 +1084,15 @@ Add-Content log.txt "------deploy poc web app------"
 Write-Host  "-----------------deploy poc web app ---------------"
 
 $spname="Manufacturing Demo $deploymentId"
-$clientsecpwd ="Smoothie@Smoothie@2020"
 
-$appId = az ad app create --password $clientsecpwd --end-date $AADAppClientSecretExpiration --display-name $spname --query "appId" -o tsv
-          
+$app = az ad app create --display-name $spname | ConvertFrom-Json
+$appId = $app.appId
+
+$mainAppCredential = az ad app credential reset --id $appId | ConvertFrom-Json
+$clientsecpwd = $mainAppCredential.password
+
 az ad sp create --id $appId | Out-Null    
-$sp = az ad sp show --id $appId --query "objectId" -o tsv
+$sp = az ad sp show --id $appId --query "id" -o tsv
 start-sleep -s 60
 
 #https://docs.microsoft.com/en-us/power-bi/developer/embedded/embed-service-principal
@@ -1155,7 +1158,7 @@ $result = Invoke-RestMethod -Uri $url -Method GET -ContentType "application/json
 (Get-Content -path mfg-webapp/appsettings.json -Raw) | Foreach-Object { $_ `
                 -replace '#WORKSPACE_ID#', $wsId`
 				-replace '#APP_ID#', $appId`
-				-replace '#APP_SECRET#', $secretpassword`
+				-replace '#APP_SECRET#', $clientsecpwd`
 				-replace '#TENANT_ID#', $tenantId`				
         } | Set-Content -Path mfg-webapp/appsettings.json
 (Get-Content -path mfg-webapp/wwwroot/config.js -Raw) | Foreach-Object { $_ `
@@ -1404,6 +1407,7 @@ Get-ChildItem "artifacts/search" -Filter osha-final.json |
                 'Accept' = 'application/json' }
 
             $url = "https://$searchName.search.windows.net/indexes?api-version=2020-06-30"
+            
             Invoke-RestMethod -Uri $url -Headers $headers -Method Post -Body $indexDefinition | ConvertTo-Json
         }
 Start-Sleep -s 10
